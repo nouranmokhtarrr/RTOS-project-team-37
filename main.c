@@ -14,12 +14,12 @@ extern void vPrintStringAndNumber(const char *pcString, uint32_t ulValue);
 /*
  * Smart Parking Garage Gate System (TM4C123 + FreeRTOS)
  * Requested button mapping from user template:
- *   PF4 -> Driver OPEN      (active-low pull-up)
- *   PE0 -> Driver CLOSE     (active-high pull-down)
- *   PE1 -> Security OPEN    (active-high pull-down)
- *   PB0 -> Security CLOSE   (active-high pull-down)
+ *   PF4 -> Driver OPEN      (active-low pull-up, LaunchPad SW1)
+ *   PF0 -> Driver CLOSE     (active-low pull-up, LaunchPad SW2)
+ *   PE0 -> Security OPEN    (active-high pull-down)
+ *   PE1 -> Security CLOSE   (active-high pull-down)
+ *   PB0 -> Closed Limit     (active-high pull-down)
  *   PB1 -> Open Limit       (active-high pull-down)
- *   PD0 -> Closed Limit     (active-high pull-down)
  *   PD1 -> Obstacle         (active-high pull-down)
  *
  * LEDs:
@@ -33,12 +33,12 @@ extern void vPrintStringAndNumber(const char *pcString, uint32_t ulValue);
 #define LED_GREEN    (1U << 3)
 #define LED_MASK     (LED_RED | LED_GREEN)
 
+#define BTN_PF0      (1U << 0)
 #define BTN_PF4      (1U << 4)
 #define BTN_PE0      (1U << 0)
 #define BTN_PE1      (1U << 1)
 #define BTN_PB0      (1U << 0)
 #define BTN_PB1      (1U << 1)
-#define BTN_PD0      (1U << 0)
 #define BTN_PD1      (1U << 1)
 
 #define RCGCGPIO_B   (1U << 1)
@@ -272,15 +272,15 @@ static void GPIO_Init(void)
     while ((SYSCTL_PRGPIO_R & RCGCGPIO_ALL) != RCGCGPIO_ALL) { }
 
     GPIO_PORTF_LOCK_R = 0x4C4F434BU;
-    GPIO_PORTF_CR_R |= (BTN_PF4 | LED_MASK);
+    GPIO_PORTF_CR_R |= (BTN_PF0 | BTN_PF4 | LED_MASK);
 
-    GPIO_PORTF_AMSEL_R &= ~(BTN_PF4 | LED_MASK);
-    GPIO_PORTF_PCTL_R &= ~0x000FFFF0U;
-    GPIO_PORTF_AFSEL_R &= ~(BTN_PF4 | LED_MASK);
+    GPIO_PORTF_AMSEL_R &= ~(BTN_PF0 | BTN_PF4 | LED_MASK);
+    GPIO_PORTF_PCTL_R &= ~0x000FFFFFU;
+    GPIO_PORTF_AFSEL_R &= ~(BTN_PF0 | BTN_PF4 | LED_MASK);
     GPIO_PORTF_DIR_R |= LED_MASK;
-    GPIO_PORTF_DIR_R &= ~BTN_PF4;
-    GPIO_PORTF_PUR_R |= BTN_PF4;
-    GPIO_PORTF_DEN_R |= (BTN_PF4 | LED_MASK);
+    GPIO_PORTF_DIR_R &= ~(BTN_PF0 | BTN_PF4);
+    GPIO_PORTF_PUR_R |= (BTN_PF0 | BTN_PF4);
+    GPIO_PORTF_DEN_R |= (BTN_PF0 | BTN_PF4 | LED_MASK);
     GPIO_PORTF_DATA_R &= ~LED_MASK;
 
     GPIO_PORTE_AMSEL_R &= ~(BTN_PE0 | BTN_PE1);
@@ -298,13 +298,13 @@ static void GPIO_Init(void)
     GPIO_PORTB_DEN_R |= (BTN_PB0 | BTN_PB1);
 
     GPIO_PORTD_LOCK_R = 0x4C4F434BU;
-    GPIO_PORTD_CR_R |= (BTN_PD0 | BTN_PD1);
-    GPIO_PORTD_AMSEL_R &= ~(BTN_PD0 | BTN_PD1);
-    GPIO_PORTD_PCTL_R &= ~0x000000FFU;
-    GPIO_PORTD_AFSEL_R &= ~(BTN_PD0 | BTN_PD1);
-    GPIO_PORTD_DIR_R &= ~(BTN_PD0 | BTN_PD1);
-    GPIO_PORTD_PDR_R |= (BTN_PD0 | BTN_PD1);
-    GPIO_PORTD_DEN_R |= (BTN_PD0 | BTN_PD1);
+    GPIO_PORTD_CR_R |= BTN_PD1;
+    GPIO_PORTD_AMSEL_R &= ~BTN_PD1;
+    GPIO_PORTD_PCTL_R &= ~0x000000F0U;
+    GPIO_PORTD_AFSEL_R &= ~BTN_PD1;
+    GPIO_PORTD_DIR_R &= ~BTN_PD1;
+    GPIO_PORTD_PDR_R |= BTN_PD1;
+    GPIO_PORTD_DEN_R |= BTN_PD1;
 }
 
 static inline uint32_t ReadPF(void) { return GPIO_PORTF_DATA_R; }
@@ -319,11 +319,11 @@ static inline void LED_Set(uint32_t mask)
 
 /* ------------------------------ button helpers ----------------------------- */
 static inline uint8_t Btn_DriverOpen(void)   { return ((ReadPF() & BTN_PF4) == 0U) ? 1U : 0U; } /* active-low */
-static inline uint8_t Btn_DriverClose(void)  { return ((ReadPE() & BTN_PE0) != 0U) ? 1U : 0U; }
-static inline uint8_t Btn_SecurityOpen(void) { return ((ReadPE() & BTN_PE1) != 0U) ? 1U : 0U; }
-static inline uint8_t Btn_SecurityClose(void){ return ((ReadPB() & BTN_PB0) != 0U) ? 1U : 0U; }
+static inline uint8_t Btn_DriverClose(void)  { return ((ReadPF() & BTN_PF0) == 0U) ? 1U : 0U; } /* active-low */
+static inline uint8_t Btn_SecurityOpen(void) { return ((ReadPE() & BTN_PE0) != 0U) ? 1U : 0U; }
+static inline uint8_t Btn_SecurityClose(void){ return ((ReadPE() & BTN_PE1) != 0U) ? 1U : 0U; }
 static inline uint8_t Btn_OpenLimit(void)    { return ((ReadPB() & BTN_PB1) != 0U) ? 1U : 0U; }
-static inline uint8_t Btn_ClosedLimit(void)  { return ((ReadPD() & BTN_PD0) != 0U) ? 1U : 0U; }
+static inline uint8_t Btn_ClosedLimit(void)  { return ((ReadPB() & BTN_PB0) != 0U) ? 1U : 0U; }
 static inline uint8_t Btn_Obstacle(void)     { return ((ReadPD() & BTN_PD1) != 0U) ? 1U : 0U; }
 
 static void SendEvent(EventType type, CommandSource src, TickType_t tick)
@@ -472,18 +472,16 @@ static void vSafetyTask(void *pvParameters)
         if ((obstacleNow != 0U) && (prevObstacle == 0U))
         {
             GateState st;
-            MotionMode md;
 
             if (xSemaphoreTake(g_stateMutex, portMAX_DELAY) == pdTRUE)
             {
                 st = g_gateState;
-                md = g_motionMode;
                 (void)xSemaphoreGive(g_stateMutex);
 
-                /* Obstacle is only actionable during AUTO closing. */
-                if ((st == CLOSING) && (md == MOTION_AUTO))
+                /* TC-08: obstacle overrides closing even if CLOSE is held manually. */
+                if (st == CLOSING)
                 {
-                    vPrintString("\r\nSafety task: obstacle edge while auto-closing\r\n");
+                    vPrintString("\r\nSafety task: obstacle edge while closing\r\n");
                     SendEvent(EV_OBSTACLE, SRC_SECURITY, xTaskGetTickCount());
                 }
             }
@@ -588,18 +586,26 @@ static void vGateControlTask(void *pvParameters)
                 switch (ev.type)
                 {
                     case EV_OPEN_PRESS:
-                        if ((g_gateState == IDLE_CLOSED) ||
-                            (g_gateState == CLOSING) ||
-                            (g_gateState == STOPPED_MIDWAY))
+                        if (g_gateState == CLOSING)
+                        {
+                            GateSetStoppedMidway();
+                            vPrintString("\r\nOpposite command while closing -> gate stopped\r\n");
+                        }
+                        else if ((g_gateState == IDLE_CLOSED) ||
+                                 (g_gateState == STOPPED_MIDWAY))
                         {
                             GateSetOpening(ev.src, ev.tick);
                         }
                         break;
 
                     case EV_CLOSE_PRESS:
-                        if ((g_gateState == IDLE_OPEN) ||
-                            (g_gateState == OPENING) ||
-                            (g_gateState == STOPPED_MIDWAY))
+                        if (g_gateState == OPENING)
+                        {
+                            GateSetStoppedMidway();
+                            vPrintString("\r\nOpposite command while opening -> gate stopped\r\n");
+                        }
+                        else if ((g_gateState == IDLE_OPEN) ||
+                                 (g_gateState == STOPPED_MIDWAY))
                         {
                             GateSetClosing(ev.src, ev.tick);
                         }
@@ -625,9 +631,9 @@ static void vGateControlTask(void *pvParameters)
                         break;
 
                     case EV_OBSTACLE:
-                        if ((g_gateState == CLOSING) && (g_motionMode == MOTION_AUTO))
+                        if (g_gateState == CLOSING)
                         {
-                            vPrintString("\r\nObstacle detected while auto-closing\r\n");
+                            vPrintString("\r\nObstacle detected while closing\r\n");
                             /* Explicit stop first, then reverse as required. */
                             GateSetStoppedMidway();
                             Watch_UpdateGateLocked();
