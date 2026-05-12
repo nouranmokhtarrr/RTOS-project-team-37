@@ -588,8 +588,16 @@ static void vGateControlTask(void *pvParameters)
                     case EV_OPEN_PRESS:
                         if (g_gateState == CLOSING)
                         {
-                            GateSetStoppedMidway();
-                            vPrintString("\r\nOpposite command while closing -> gate stopped\r\n");
+                            if ((ev.src == SRC_SECURITY) && (g_activeSrc == SRC_DRIVER))
+                            {
+                                GateSetOpening(ev.src, ev.tick);
+                                vPrintString("\r\nSecurity OPEN overrides driver closing\r\n");
+                            }
+                            else
+                            {
+                                GateSetStoppedMidway();
+                                vPrintString("\r\nOpposite command while closing -> gate stopped\r\n");
+                            }
                         }
                         else if ((g_gateState == IDLE_CLOSED) ||
                                  (g_gateState == STOPPED_MIDWAY))
@@ -601,8 +609,16 @@ static void vGateControlTask(void *pvParameters)
                     case EV_CLOSE_PRESS:
                         if (g_gateState == OPENING)
                         {
-                            GateSetStoppedMidway();
-                            vPrintString("\r\nOpposite command while opening -> gate stopped\r\n");
+                            if ((ev.src == SRC_SECURITY) && (g_activeSrc == SRC_DRIVER))
+                            {
+                                GateSetClosing(ev.src, ev.tick);
+                                vPrintString("\r\nSecurity CLOSE overrides driver opening\r\n");
+                            }
+                            else
+                            {
+                                GateSetStoppedMidway();
+                                vPrintString("\r\nOpposite command while opening -> gate stopped\r\n");
+                            }
                         }
                         else if ((g_gateState == IDLE_OPEN) ||
                                  (g_gateState == STOPPED_MIDWAY))
